@@ -1,0 +1,12 @@
+# nginx variant: use this instead of .htaccess if your host runs nginx.
+# Merge into the server block whose root points at public/.
+#
+# location / {
+#     try_files $uri /index.php?$query_string;
+# }
+#
+# location ~ \.php$ {
+#     fastcgi_pass unix:/run/php/php8.1-fpm.sock;   # host-specific
+#     include fastcgi_params;
+#     fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+# }

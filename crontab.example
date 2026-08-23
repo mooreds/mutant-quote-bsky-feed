@@ -1,0 +1,2 @@
+# Install: crontab -e, adjust the path, then uncomment:
+# * * * * * cd /path/to/mutant-quotes-php && php bin/consume.php >> data/consume.log 2>&1
