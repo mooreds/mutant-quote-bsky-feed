@@ -92,6 +92,33 @@ If the feed feels noisy raise `TOKEN_COVERAGE_MIN`; if big remix threads go
 missing lower it. Keep `CONSUME_BUDGET_SECONDS` well under your host's
 cron interval and max runtime.
 
+## Caching headers
+
+Responses carry explicit `Cache-Control` so CDNs behave predictably:
+
+| Endpoint | Header |
+| --- | --- |
+| `/.well-known/did.json` | `public, max-age=3600` |
+| `/xrpc/app.bsky.feed.describeFeedGenerator` | `public, max-age=3600` |
+| `/xrpc/app.bsky.feed.getFeedSkeleton` | `public, max-age=30, s-maxage=60` |
+| `/health`, all errors | `no-store` |
+
+### Behind CloudFront
+
+- Use a cache policy that **honors origin Cache-Control** (the managed
+  `CachingOptimized` policy works: origin TTLs are clamped to its
+  min=1s/max=1y window, and our values fit). With no policy override,
+  CloudFront falls back to an 86400s default for header-less responses —
+  which is why every route sends an explicit header.
+- Keep query strings in the cache key (managed policies include them by
+  default) or cursor pagination will collapse to one cached page.
+- `s-maxage=60` gives the edge a 60s TTL while browsers hold pages 30s;
+  both align with the minute-level cron ingestion cadence.
+- Responses are identical for all users (the AppView's optional
+  Authorization header is ignored), so shared edge caching is safe; no
+  `Vary` header is needed.
+- Enable behavior compression for `application/json` if you want gzip.
+
 ## Limitations
 
 - Text-only detection (image-mutation chains would need perceptual hashing).

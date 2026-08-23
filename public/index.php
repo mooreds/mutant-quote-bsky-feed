@@ -4,23 +4,26 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../src/db.php';
 
-function json_response($payload, int $status = 200): void
+function json_response($payload, int $status = 200, ?string $cacheControl = null): void
 {
     http_response_code($status);
     header('Content-Type: application/json');
+    if ($cacheControl !== null) {
+        header("Cache-Control: {$cacheControl}");
+    }
     echo json_encode($payload, JSON_UNESCAPED_SLASHES);
 }
 
 function error_response(int $status, string $name, string $message): void
 {
-    json_response(['error' => $name, 'message' => $message], $status);
+    json_response(['error' => $name, 'message' => $message], $status, 'no-store');
 }
 
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 
 switch ($path) {
     case '/health':
-        json_response(array_merge(['ok' => true], stats()));
+        json_response(array_merge(['ok' => true], stats()), 200, 'no-store');
         break;
 
     case '/.well-known/did.json':
@@ -35,14 +38,14 @@ switch ($path) {
                     'serviceEndpoint' => 'https://' . cfg('hostname'),
                 ],
             ],
-        ]);
+        ], 200, 'public, max-age=3600');
         break;
 
     case '/xrpc/app.bsky.feed.describeFeedGenerator':
         json_response([
             'did' => service_did(),
             'feeds' => [['uri' => feed_uri()]],
-        ]);
+        ], 200, 'public, max-age=3600');
         break;
 
     case '/xrpc/app.bsky.feed.getFeedSkeleton':
@@ -81,7 +84,7 @@ switch ($path) {
         if ($hasMore && $rows !== []) {
             $payload['cursor'] = (string) end($rows)['indexed_us'];
         }
-        json_response($payload);
+        json_response($payload, 200, 'public, max-age=30, s-maxage=60');
         break;
 
     default:
