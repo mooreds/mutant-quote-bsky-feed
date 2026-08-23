@@ -23,6 +23,7 @@ function bsky_xrpc_get(string $endpoint, array $params): ?array
         CURLOPT_TIMEOUT => 15,
         CURLOPT_CONNECTTIMEOUT => 10,
         CURLOPT_USERAGENT => 'mutant-quotes-php/1.0',
+        CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
     ]);
     $body = curl_exec($ch);
     $status = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
@@ -59,6 +60,7 @@ function bsky_fetch_posts(array $uris): array
         CURLOPT_TIMEOUT => 15,
         CURLOPT_CONNECTTIMEOUT => 10,
         CURLOPT_USERAGENT => 'mutant-quotes-php/1.0',
+        CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
     ]);
     $body = curl_exec($ch);
     $status = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
