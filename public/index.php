@@ -87,6 +87,19 @@ switch ($path) {
         json_response($payload, 200, 'public, max-age=30, s-maxage=60');
         break;
 
+    case '/debug-qs':
+        if (getenv('DEBUG_QS') !== '1') {
+            error_response(404, 'NotFound', 'not found');
+            break;
+        }
+        json_response([
+            'request_uri' => $_SERVER['REQUEST_URI'] ?? null,
+            'query_string' => $_SERVER['QUERY_STRING'] ?? null,
+            'get_feed' => $_GET['feed'] ?? null,
+            'host_header' => $_SERVER['HTTP_HOST'] ?? null,
+        ], 200, 'no-store');
+        break;
+
     default:
         error_response(404, 'NotFound', "no handler for {$path}");
 }
