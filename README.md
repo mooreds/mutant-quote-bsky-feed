@@ -73,7 +73,34 @@ FEED_HOSTNAME=feed.yourdomain.com
 PUBLISHER_DID=did:plc:xxxxxxxx        # your account DID
 BLUESKY_HANDLE=you.bsky.social        # only needed for publish.php
 BLUESKY_APP_PASSWORD=xxxx-xxxx-xxxx
+
+# Optional (defaults shown):
+# PUBLIC_API_URL=https://public.api.bsky.app    # AppView reads; see Outbound connectivity
+# JETSTREAM_URL=wss://jetstream2.us-east.bsky.network/subscribe
 ```
+
+### Outbound connectivity
+
+Some datacenter hosts have broken routing to specific CDNs (we hit a host
+that could not reach `public.api.bsky.app`, which sits behind BunnyCDN).
+The API client therefore tries endpoints in order and fails over
+automatically on transport errors or non-200 responses:
+`PUBLIC_API_URL`, then `api.bsky.app` (Bluesky-run, same backend, no CDN),
+then `public.api.bsky.app`. The first endpoint returning <400 is pinned for
+the process. To check reachability from your host:
+
+```sh
+for h in public.api.bsky.app api.bsky.app jetstream2.us-east.bsky.network; do
+  printf '%-35s ' "$h"
+  curl -4 -sI --max-time 8 "https://$h/" > /dev/null 2>&1 && echo reachable || echo BLOCKED
+done
+```
+
+If `public.api.bsky.app` is blocked but `api.bsky.app` is not, set
+`PUBLIC_API_URL=https://api.bsky.app` in `.env` to skip the doomed first
+attempt each process would otherwise make; the failover makes this
+optional, not required.
+
 
 ## Tuning
 
@@ -91,6 +118,29 @@ BLUESKY_APP_PASSWORD=xxxx-xxxx-xxxx
 If the feed feels noisy raise `TOKEN_COVERAGE_MIN`; if big remix threads go
 missing lower it. Keep `CONSUME_BUDGET_SECONDS` well under your host's
 cron interval and max runtime.
+
+## Disk maintenance
+
+The database grows with every quote post on the network (~0.5 KB each);
+only mutation edges and chain members are ever needed long-term.
+`bin/prune.php` deletes evaluated non-mutation posts older than the
+retention window plus expired parent-cache rows. It never touches pending
+posts, chain members (including chain roots), or cursor state; pruned
+parents quoted again later are simply re-fetched from the API.
+
+```sh
+php bin/prune.php                # delete + truncate WAL (file size unchanged)
+php bin/prune.php --vacuum       # also shrink the file (needs ~2x db size free transiently)
+php bin/prune.php --dry-run      # report only
+php bin/prune.php --days=7       # override retention window (default PRUNE_KEEP_DAYS=14)
+```
+
+Weekly from cron:
+
+```
+17 4 * * 1 cd /path/to/mutant-quotes-php && php bin/prune.php --vacuum >> data/prune.log 2>&1
+```
+
 
 ## Caching headers
 
