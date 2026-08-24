@@ -56,8 +56,9 @@ function cfg(string $key)
             'min_chain_edges' => (int) (getenv('MIN_CHAIN_EDGES') ?: 3),
             'min_text_length' => (int) (getenv('MIN_TEXT_LENGTH') ?: 12),
             'sim_threshold' => (float) (getenv('SIM_THRESHOLD') ?: 0.72),
-            'token_coverage_min' => (float) (getenv('TOKEN_COVERAGE_MIN') ?: 0.7),
+            'token_coverage_min' => (float) (getenv('TOKEN_COVERAGE_MIN') ?: 0.55),
             'token_shared_min' => (int) (getenv('TOKEN_SHARED_MIN') ?: 8),
+            'token_shared_frac' => (float) (getenv('TOKEN_SHARED_FRAC') ?: 0.5),
 
             'consume_budget_seconds' => (int) (getenv('CONSUME_BUDGET_SECONDS') ?: 40),
             'eval_batch_size' => (int) (getenv('EVAL_BATCH_SIZE') ?: 150),

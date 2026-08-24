@@ -108,8 +108,9 @@ optional, not required.
 | --- | --- | --- |
 | `MIN_CHAIN_EDGES` | 3 | mutations before a chain feeds |
 | `SIM_THRESHOLD` | 0.72 | char-similarity cutoff |
-| `TOKEN_COVERAGE_MIN` | 0.7 | fraction of quote words inherited from parent |
-| `TOKEN_SHARED_MIN` | 8 | floor on absolute shared word count |
+| `TOKEN_COVERAGE_MIN` | 0.55 | fraction of quote words inherited from parent |
+| `TOKEN_SHARED_MIN` | 8 | shared-word floor for long templates |
+| `TOKEN_SHARED_FRAC` | 0.5 | short templates scale the floor to frac x parent tokens (floor never below 3; 0 disables) |
 | `MIN_TEXT_LENGTH` | 12 | ignore shorter texts |
 | `CONSUME_BUDGET_SECONDS` | 40 | max time per cron run draining jetstream |
 | `EVAL_BATCH_SIZE` | 150 | quote posts evaluated per run |

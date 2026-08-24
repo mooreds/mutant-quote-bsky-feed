@@ -35,6 +35,8 @@ CREATE TABLE IF NOT EXISTS posts (
 );
 CREATE INDEX IF NOT EXISTS idx_posts_parent ON posts(parent_uri);
 CREATE INDEX IF NOT EXISTS idx_posts_unevaluated ON posts(evaluated);
+CREATE INDEX IF NOT EXISTS idx_posts_chain ON posts(chain_id);
+CREATE INDEX IF NOT EXISTS idx_posts_indexed ON posts(indexed_us);
 
 CREATE TABLE IF NOT EXISTS chains (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,

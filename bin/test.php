@@ -116,6 +116,32 @@ check_mutation(
     'low-coverage'
 );
 
+echo "short-template remixes (real band-game chain)\n";
+$bt = [
+    'Make a band bigger / Vanilla Iceberg',
+    "Make a band bigger / They\u{2019}re Definitely Giants",
+    'Make a band bigger / Truly Massive Attack',
+    'Make a band bigger / The Goatse Surfers',
+    'Make a band bigger / RadioBust',
+];
+for ($i = 1; $i < count($bt); $i++) {
+    $r = detect_mutation($bt[$i - 1], $bt[$i]);
+    check("link {$i} ({$r['reason']}) is a mutation", $r['isMutation'] === true);
+}
+check_mutation(
+    'stopword-only overlap on short parent still rejected',
+    detect_mutation('oh this is great news', 'it is what it is honestly'),
+    false
+);
+check_mutation(
+    'long-template floor unchanged: 3 shared of many fails',
+    detect_mutation(
+        'the quick brown fox jumps over the lazy dog near the old barn again',
+        'the quick brown fox runs through the tall grass behind the new shed today'
+    ),
+    false
+);
+
 echo "extract_quoted_uri\n";
 check(
     'app.bsky.embed.record',

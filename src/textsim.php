@@ -4,11 +4,17 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/config.php';
 
+const TOKEN_SHARED_FLOOR_MIN = 3;
+
 function normalize_text(string $text): string
 {
     if (function_exists('normalizer_normalize')) {
         $text = normalizer_normalize($text, Normalizer::FORM_C);
     }
+    $text = strtr($text, [
+        "\u{2019}" => "'", "\u{2018}" => "'",
+        "\u{201C}" => '"', "\u{201D}" => '"',
+    ]);
     $text = preg_replace('/[\x{200B}-\x{200D}\x{FEFF}\x{2060}]/u', '', $text) ?? $text;
     $text = preg_replace('/\s+/u', ' ', $text) ?? $text;
     return trim($text);
@@ -100,7 +106,15 @@ function detect_mutation(string $parent, string $child): array
     }
     $coverage = $childTokens > 0 ? $shared / $childTokens : 0.0;
 
-    if ($shared >= cfg('token_shared_min') && $coverage >= cfg('token_coverage_min')) {
+    // The absolute shared floor assumes a long template; scale it down for
+    // short parents ("make a band bigger" = 4 template words can never hit 8).
+    // Never below TOKEN_SHARED_FLOOR_MIN to block stopword-only matches.
+    $frac = (float) cfg('token_shared_frac');
+    $floor = $frac > 0
+        ? max(TOKEN_SHARED_FLOOR_MIN, min((int) cfg('token_shared_min'), (int) ceil($frac * array_sum($pt))))
+        : (int) cfg('token_shared_min');
+
+    if ($shared >= $floor && $coverage >= cfg('token_coverage_min')) {
         return ['isMutation' => true, 'similarity' => $coverage, 'reason' => 'mutated'];
     }
 
