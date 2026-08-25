@@ -143,8 +143,13 @@ function evaluate_pending(): int
     $attempted = [];
     $cap = cfg('parent_fetch_max_per_run');
     $size = cfg('parent_fetch_batch_size');
+    $deadline = microtime(true) + max(10, cfg('consume_budget_seconds'));
     $missing = array_values(array_unique($missing));
     for ($i = 0; $i < count($missing) && $i < $cap; $i += $size) {
+        if (microtime(true) >= $deadline) {
+            error_log('evaluate: time budget exhausted, deferring remaining chunks to next run');
+            break;
+        }
         $chunk = array_slice($missing, $i, $size);
         try {
             $fetched = bsky_fetch_posts($chunk);

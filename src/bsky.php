@@ -24,35 +24,78 @@ function bsky_api_base_urls(): array
 /**
  * GET against the Bluesky API, failing over between endpoints on transport
  * errors or non-200s. Only a sub-400 response pins the endpoint as preferred
- * for the lifetime of the process.
+ * for the lifetime of the process; recently-failed endpoints drop to the
+ * back of the attempt order. Transport errors and 5xx get one quick retry
+ * per endpoint; 429 honors Retry-After (capped at 5s).
  * @return array{0:string|false,1:int,2:string} [body, http status, curl error]
  */
 function bsky_http_get(string $path): array
 {
     static $preferred = null;
-    $urls = $preferred !== null ? [$preferred] : bsky_api_base_urls();
+    static $failedAt = [];
+
+    $order = bsky_api_base_urls();
+    if ($preferred !== null && in_array($preferred, $order, true)) {
+        $order = array_merge([$preferred], array_values(array_diff($order, [$preferred])));
+    } else {
+        usort($order, fn ($a, $b) => ($failedAt[$a] ?? 0) <=> ($failedAt[$b] ?? 0));
+    }
+
+    $retryAfterInfo = defined('CURLINFO_RETRY_AFTER') ? CURLINFO_RETRY_AFTER : 0;
     $body = false;
     $status = 0;
     $err = 'no endpoints configured';
-    foreach ($urls as $base) {
-        $ch = curl_init($base . $path);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 15,
-            CURLOPT_CONNECTTIMEOUT => 10,
-            CURLOPT_USERAGENT => 'mutant-quotes-php/1.0',
-            CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
-        ]);
-        $body = curl_exec($ch);
-        $status = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-        $err = curl_error($ch);
-        if ($body !== false && $status > 0 && $status < 400) {
-            $preferred = $base;
-            return [$body, $status, $err];
+    foreach ($order as $base) {
+        for ($attempt = 0; $attempt < 2; $attempt++) {
+            if ($attempt > 0) {
+                usleep(700000);
+            }
+            $ch = curl_init($base . $path);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 15,
+                CURLOPT_CONNECTTIMEOUT => 10,
+                CURLOPT_USERAGENT => 'mutant-quotes-php/1.0',
+                CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
+            ]);
+            $body = curl_exec($ch);
+            $status = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+            $err = curl_error($ch);
+            if ($body !== false && $status === 429) {
+                $wait = 2;
+                if ($retryAfterInfo !== 0) {
+                    $wait = (int) curl_getinfo($ch, $retryAfterInfo);
+                }
+                $wait = max(1, min($wait, 5));
+                bsky_log_failure($base, $path, "rate limited, sleeping {$wait}s", 429);
+                sleep($wait);
+                continue;
+            }
+            if ($body !== false && $status > 0 && $status < 400) {
+                $preferred = $base;
+                unset($failedAt[$base]);
+                return [$body, $status, $err];
+            }
+            if ($body !== false && $status >= 400 && $status < 500) {
+                break;
+            }
         }
-        error_log("bsky api: {$base}{$path} failed: {$err} status={$status}");
+        $failedAt[$base] = time();
+        bsky_log_failure($base, $path, $err, $status);
     }
     return [$body, $status, $err];
+}
+
+/**
+ * Compact failure log: never dump full query strings (25-URI batches are
+ * multi-kilobyte noise).
+ */
+function bsky_log_failure(string $base, string $path, string $err, int $status): void
+{
+    $parts = explode('?', $path, 2);
+    $detail = isset($parts[1]) ? sprintf(' [%d uris]', substr_count($parts[1], 'uris=')) : '';
+    $reason = $err !== '' ? $err : "http {$status}";
+    error_log("bsky api: {$base}{$parts[0]}{$detail} failed: {$reason}");
 }
 
 function bsky_xrpc_get(string $endpoint, array $params): ?array
