@@ -86,6 +86,14 @@ $pdo->commit();
 $pdo->exec('PRAGMA wal_checkpoint(TRUNCATE)');
 
 if ($doVacuum) {
+    $pages = (int) db()->query('PRAGMA page_count')->fetchColumn();
+    $freePages = (int) db()->query('PRAGMA freelist_count')->fetchColumn();
+    if ($pages > 0 && $freePages / $pages < 0.05) {
+        fprintf(STDERR, "prune: skipping VACUUM, free list is only %.1f%% of pages\n", 100 * $freePages / max(1, $pages));
+        $doVacuum = false;
+    }
+}
+if ($doVacuum) {
     $needed = $sizeOf($dbPath) * 2;
     $free = (int) (@disk_free_space(dirname($dbPath) ?: '.'));
     if ($free > 0 && $free < $needed) {
